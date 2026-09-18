@@ -7,15 +7,15 @@ plugins {
 }
 
 android {
-    namespace = "org.soulstone.overwatch"
+    namespace = "ch.swhizkid.tailtrace"
     compileSdk = 37
 
     defaultConfig {
-        applicationId = "org.soulstone.overwatch"
+        applicationId = "ch.swhizkid.tailtrace"
         minSdk = 26
         targetSdk = 35
-        versionCode = 29
-        versionName = "0.5.13"
+        versionCode = 23
+        versionName = "0.7.0-tailtrace"
     }
 
     // Fixed debug keystore committed to the repo (a debug key is non-secret — its
@@ -65,6 +65,7 @@ android {
 dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.lifecycle.service)
     implementation(libs.androidx.activity.compose)
 
@@ -75,8 +76,11 @@ dependencies {
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.compose.material.icons.extended)
 
-    implementation(libs.play.services.location)
+    // No Google Play Services: location comes from the framework
+    // LocationManager (see data/location/LocationProvider.kt).
     implementation(libs.osmdroid.android)
 
     debugImplementation(libs.androidx.compose.ui.tooling)
+
+    testImplementation(libs.junit)
 }

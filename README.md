@@ -1,3 +1,35 @@
+# TailTrace
+
+Fork of [KaraZajac/OVERWATCH](https://github.com/KaraZajac/OVERWATCH) plus the
+temporal counter-tracking from [VIGIL](https://github.com/KaraZajac/VIGIL): keep
+**every** BLE advertisement and WiFi AP the phone hears, assign an **entity**
+later, and watch for personal item-trackers (AirTag / Tile / SmartTag / Find My /
+DULT) that are **travelling with you over time**.
+
+Detection sources are tuned for **Switzerland**. The live set is BLE, WIFI,
+OSM, WAZE, COMMERCIAL, CELL (IMSI-catcher heuristics), and TRACKER.
+
+- **Live threat circle** is unchanged OVERWATCH (known-target scoring, 5-minute
+  in-memory window), plus tracker co-movement / clone alerts when they fire.
+- **Catalog** (list icon on the main screen) is durable radio history. Each
+  MAC/BSSID is a row with OUI, company IDs, service UUIDs, name, SSID, payload
+  fingerprint, hit count, and last GPS fix. Assign one row, or bind a **trait
+  rule** so matching unassigned rows inherit that entity.
+- **Watch list** (Bluetooth icon) is VIGIL's temporal engine: parse tracker
+  wire formats, geotag sightings, escalate OBSERVED → SUSPICIOUS → ALERTING
+  only when co-movement + RSSI proximity clear, allowlist ("this is mine"),
+  learned home/work baseline, hot/cold finder, user-initiated ring, and a
+  rotating-clone presence detector. Tracker rows live in `tailtrace_trackers.db`
+  (14-day sighting retention). OSM/Waze still need the network; tracker
+  detection itself is on-device.
+
+On-device SQLite (`tailtrace_catalog.db`, `tailtrace_trackers.db`). Stopping a
+scan no longer forgets radio history.
+
+Upstream OVERWATCH notes follow.
+
+---
+
 # OVERWATCH
 
 A native Android (Kotlin) **passive surveillance-detection** app. Open it, hit
@@ -34,6 +66,7 @@ Website: **[overwatch.netslum.io](https://overwatch.netslum.io)**  ·  Latest re
 
 | Source | What it looks at | Where it comes from |
 |---|---|---|
+<<<<<<< HEAD
 | **BLE** | Bluetooth-LE advertisements: vendor MAC OUIs (Axon, Flock Penguin / Raven, XUNTONG mfg id `0x09C8`, "TN" serial pattern), Raven service UUIDs, device-name patterns — plus 18 IEEE-verified surveillance-vendor OUIs (ShotSpotter, WatchGuard/Motorola, Verkada, Avigilon Alta, Axis body cams, FLIR, Hanwha, March Networks, GeoVision, Mobotix, Sunell) with vendor-named labels | Local radio scan (BLE callback API). Iterates every manufacturer-specific data entry to find XUNTONG, not just the first. **Screen off:** Android suspends unfiltered scans, so the scanner switches to a filtered scan (Raven UUIDs, XUNTONG, mic company ids); OUI-prefix and name matching resume when the screen is on — see [SOURCES.md §5.1](SOURCES.md). Police-exclusive OUIs (WatchGuard, ShotSpotter) score ORANGE on sight, same rationale as Axon. |
 | **WiFi** | BSSID OUI prefixes for Flock infrastructure (31-prefix superset) + the same 18 vendor OUIs (WatchGuard 4RE in-car APs, Openpath/Alta readers, WiFi-capable cameras), `Flock-XXXX` and other generic SSID patterns | `WifiManager.getScanResults()` polled every 35 s (just under the Android 11+ 4-scans/2-min throttle) |
 | **DEFLOCK** | Crowdsourced ALPR locations within the detection radius (default 500 m), scored by how close each one actually is | POST to Overpass API (`overpass.deflock.org` → fallback `overpass-api.de`) for `man_made=surveillance + surveillance:type=ALPR` in a 5 km bbox; 24 h on-disk cache by 0.05° grid cell. Refetches when the user moves > 1.5 km from the last fetch center. Backoffs after Overpass failures; treats `{"remark": "...timed out..."}` 200-responses as failure so timeouts don't poison the cache. |
@@ -58,6 +91,31 @@ Website: **[overwatch.netslum.io](https://overwatch.netslum.io)**  ·  Latest re
 > **Full reference:** [SOURCES.md](SOURCES.md) documents every endpoint, every
 > BLE/WiFi identifier, the scoring tables, and the sources that were tried and
 > rejected (and why).
+=======
+| **BLE** | Swiss/EU camera + bodycam OUIs (Axis, Hikvision, Dahua, Mobotix, Hanwha, Axon) and advertised names. US Flock / Espressif prefixes removed. | Local BLE scan |
+| **WiFi** | Same vendor BSSIDs + CH SSIDs (`axis-…`, Hikvision/Dahua, Kantonspolizei / Stadtpolizei / Securitas). Not `SBB-Free`. | `WifiManager.getScanResults()` every 35 s |
+| **OSM** | Speed cameras, section control, red-light cams, public/outdoor CCTV | [overpass.osm.ch](https://overpass.osm.ch/) → `overpass-api.de` |
+| **WAZE** | User-reported `POLICE` alerts in range | Proxy token in Settings (optional) |
+| **CELL** | Serving-cell IMSI-catcher heuristics (2G inland, wrong MCC/MNC) | `TelephonyManager.getAllCellInfo()` — passive, on-device |
+| **COMMERCIAL** | Nearby consumer smart-home / voice gear (Nest, Ring, Echo, hidden cams) and camera-bearing smart glasses (Meta, Snap, Vuzix) as a secondary situational signal | Rides the BLE + WiFi scans — OUI / device-name / service-UUID / SSID matches plus Bluetooth SIG company IDs from `MicTargets`. Score-capped at ORANGE so a cluster of doorbells (or a passing pair of Ray-Bans) never reads as ALPR-grade certainty. |
+| **TRACKER** | AirTag / Tile / SmartTag / Google Find My / DULT tags travelling with you | Local BLE parse + on-device co-movement |
+
+> **Citizen went dark (v0.5.5).** Citizen ended the police-dispatch data
+> partnership behind its public feed in June 2026 and stubbed the endpoints.
+> Verified 2026-08-28: `/api/incident/trending` answers HTTP 200 with a bare
+> JSON empty string, `/api/incident/{id}` returns `{}` for every id (real or
+> invented), and `data.sp0n.io/v1/incidents/trending` — the host the current web
+> app uses — returns a zero-byte body even with no query params at all. Every
+> sibling path (`nearby`, `recent`, `latest`, `map`, `list`, `active`) returns
+> `{}`. That is a decommissioned surface, not a changed contract, so there is no
+> parameter or host fix; structured incident data is now Citizen's paid
+> Enterprise API only. The app no longer leaks the resulting JSON parse error
+> into the drill-down — it reports the shutdown plainly and stops hammering the
+> endpoint. Police presence is still covered by Waze (denser for roadway stops
+> anyway) and DeFlock.
+
+> **Waze is back (v0.4.0+), via a key-protected proxy.** Waze reCAPTCHA-gated its `live-map/api/georss` endpoint in 2025/2026 — automated calls get HTTP 403 regardless of IP or headless-vs-headful browser (it scores browser *reputation*, verified by direct testing), which is why v0.1.5 removed the original integration and why no free scraper survives. OVERWATCH reads Waze POLICE alerts through [OpenWeb Ninja](https://www.openwebninja.com)'s hosted feed (pay-as-you-go ~$0.005/req, ≈ $1–3/mo at the 4-min poll). To keep the paid key off every device, the app doesn't hold it: a Caddy reverse proxy at `api.blackflagintel.com` injects the key server-side, and the app authenticates with a scoped, revocable `X-App-Token` entered in Settings (stored encrypted via the Android Keystore). The Waze for Cities partner feed was ruled out — it excludes POLICE and is agency-only. Waze complements Citizen: denser for roadway stops / speed traps.
+>>>>>>> e8b74ab (Init Publish - Okay but not good enough)
 
 Every observation is scored 0–100 by `ConfidenceEngine`. The on-screen tier is
 the maximum live score across all sources:
@@ -69,6 +127,7 @@ ORANGE   70 – 84   high confidence
 RED        85 +    certain
 ```
 
+<<<<<<< HEAD
 **DeFlock and Waze are scored on a sliding scale, not a flat value.** Both
 carry real coordinates, so the score is a continuous falloff over the actual
 distance — drive toward a camera and the number climbs, drive past and it
@@ -106,6 +165,8 @@ or above is now shown regardless of range. Measured: a camera 285 m away scoring
 48 holds the tier at YELLOW from a 200 m view range all the way to 4900 m, and
 standing 29 m from one still reads **89 RED**.
 
+=======
+>>>>>>> e8b74ab (Init Publish - Okay but not good enough)
 The user-facing circle uses the full 4-tier mapping. Cross-source corroboration
 naturally pushes the global max upward (a BLE OUI hit *and* a DeFlock map
 match in the same area produce a higher tier than either alone). When idle,
@@ -116,8 +177,7 @@ While scanning, the circle becomes a live OpenStreetMap centered on you, wrapped
 in a **threat-color ring** (the current tier at a glance) and marked with a ⌖
 crosshair for your position. Map geodata is color-coded by source — **Flock /
 DeFlock ALPR red, speed cameras amber, other cameras gray, Waze police blue,
-aircraft violet** — so each dot
-is self-explanatory. The same map renders in a smaller floating overlay bubble
+aircraft violet** — so each dot is self-explanatory. The same map renders in a smaller floating overlay bubble
 (Settings → Display over other apps) so it works over other apps.
 
 ---
@@ -148,7 +208,17 @@ is self-explanatory. The same map renders in a smaller floating overlay bubble
 ui/MainScreen.kt                   map circle + threat ring + START/STOP + drill-down sheet
 ui/OverlayBubble.kt                floating "chat-bubble" version of the map circle
 ui/MarkerIcons.kt                  map marker drawables — source dots + ⌖ user crosshair
-ui/SettingsScreen.kt               source toggles, distance sliders, Waze API key, vibrate, theme
+ui/SettingsScreen.kt               source toggles, distance sliders, Waze token, vibrate, theme
+ui/SignatureCatalogScreen.kt       TailTrace: durable signature list + entity / trait assignment
+ui/TrackerWatchScreen.kt           TailTrace: VIGIL watch list, finder, allowlist
+ui/TrackerHistoryScreen.kt         TailTrace: tracker alert log + evidence export
+ui/TrackerSafetyScreen.kt          TailTrace: what-to-do guidance (CH emergency numbers)
+tracker/scan/TrackerParser.kt      AirTag / FMDN / SmartTag / Tile / DULT wire formats
+tracker/detect/CoMovementEvaluator co-movement test + RSSI gate
+tracker/detect/PresenceEngine.kt   rotating-clone presence (identity-agnostic)
+tracker/detect/BaselineManager.kt  learned home/work anchors
+tracker/data/TrackerRepository.kt  ingest + evaluate + 14-day prune
+tracker/ring/TrackerRinger.kt      user-initiated GATT play-sound
 ui/theme/Theme.kt                  Material 3 dark/light + threat colors
 service/DetectionService.kt        foreground service — owns scanners, notification, vibration
 service/OverlayManager.kt          WindowManager host for the floating overlay bubble
@@ -170,11 +240,18 @@ data/location/LocationProvider.kt  FusedLocationProviderClient wrapper
 data/settings/Settings.kt          SharedPreferences-backed StateFlow settings
 data/settings/SecureStore.kt       Keystore AES/GCM store for the Waze API key
 data/targets/                      BleOuis, WifiOuis, VendorOuis, RavenUuids, Patterns, Manufacturers, MicTargets
+data/location/LocationProvider.kt  framework LocationManager (no Play Services)
+data/settings/Settings.kt          SharedPreferences-backed StateFlow settings
+data/settings/SecureStore.kt       Keystore AES/GCM store for the Waze proxy token
+data/targets/                      BleOuis, WifiOuis, VendorOuis, RavenUuids, Patterns, Manufacturers, MicTargets
+data/catalog/                      TailTrace: signature identity, trait rules, SQLite catalog
 ```
 
-No detection-history database. All state is in-memory and clears on stop, by
-design. Service uses `START_NOT_STICKY` — system kill doesn't auto-restart
-into a stuck state.
+The **threat circle** is still in-memory and clears on stop (5-minute window).
+The **catalog** is SQLite (`tailtrace_catalog.db`) and survives stop/reboot.
+Service uses `START_NOT_STICKY` — system kill doesn't auto-restart into a
+stuck state.
+
 
 ---
 
@@ -213,8 +290,6 @@ If a key is wrong or its quota is exhausted, the drill-down says so explicitly
 ---
 
 ## Build & install
-
-Tested on Android 16 (API 36) with a punch-hole cutout as well as Android 14.
 
 Requires:
 - **JDK 17+** (built and verified on 17; Gradle 9.x runs on 17 or 21)

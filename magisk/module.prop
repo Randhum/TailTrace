@@ -1,0 +1,6 @@
+id=tailtrace-priv
+name=TailTrace (privileged install)
+version=v0.6.0
+versionCode=22
+author=TailTrace
+description=Installs TailTrace systemlessly as /system/priv-app and allowlists READ_PRECISE_PHONE_STATE + MODIFY_PHONE_STATE, enabling registration-reject detection (IMSI-catcher indicator) on official LineageOS builds without recompiling the OS.
