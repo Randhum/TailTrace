@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- BLE (Android 12+). neverForLocation is what lets a non-platform app
+         receive scan results while Location services are OFF (the only
+         alternative, RADIO_SCAN_WITHOUT_LOCATION, is signature|companion —
+         unreachable even from /system/priv-app on an official build).
+
+         Cost of the disavowal: the BT stack filters adverts matching the
+         DeviceConfig denylist "bluetooth/location_denylist_advertising_data".
+         That list is pushed BY GOOGLE PLAY SERVICES and contains only
+         Eddystone-format service data (0xFEAA, which Google FMDN reuses) and
+         Apple iBeacon (0x004C type 0x02). On degoogled LineageOS there is no
+         GMS to push it, so nothing is filtered on the target device. AirTag
+         Find My (0x004C type 0x12), Tile, SmartTag and DULT frames are never
+         on the denylist. -->
+    <uses-permission android:name="android.permission.BLUETOOTH_SCAN"
+        android:usesPermissionFlags="neverForLocation"
+        tools:targetApi="s" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+
+    <!-- BLE legacy (Android 11 and below) -->
+    <uses-permission android:name="android.permission.BLUETOOTH"
+        android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN"
+        android:maxSdkVersion="30" />
+
+    <!-- Location (required for WiFi scan results pre-Android 13, and DeFlock proximity in Phase 3) -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+
+    <!-- signature|privileged — granted ONLY when installed to /system/priv-app
+         with the matching privapp-permissions allowlist
+         (magisk/system/etc/permissions/ — copy onto /system).
+         A sideloaded install simply never receives them; CellScanner checks at
+         runtime. READ_PRECISE_PHONE_STATE unlocks registration-reject causes
+         (TelephonyCallback.RegistrationFailedListener); MODIFY_PHONE_STATE is
+         pre-declared for a future requestNetworkScan full-PLMN sweep. -->
+    <uses-permission android:name="android.permission.READ_PRECISE_PHONE_STATE"
+        tools:ignore="ProtectedPermissions" />
+    <uses-permission android:name="android.permission.MODIFY_PHONE_STATE"
+        tools:ignore="ProtectedPermissions" />
+    <!-- Privileged: disable WiFi scan throttle via Settings.Global without su.
+         NOTE: RADIO_SCAN_WITHOUT_LOCATION was removed here — it is
+         signature|companion, NOT privileged, so no priv-app install can ever
+         hold it. BLE location-off works via neverForLocation above. -->
+    <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS"
+        tools:ignore="ProtectedPermissions" />
+    <!-- protectionLevel="signature" (NOT privileged — verified in AOSP
+         core/res). WifiPermissionsUtil treats it as a location-mode bypass
+         for getScanResults/startScan, but the priv-app allowlist CANNOT
+         grant signature-only permissions: only a platform-signed APK ever
+         receives this. Kept declared so a platform-signed build works;
+         harmless (simply not granted) otherwise. With it absent, Wi-Fi
+         scanning requires Location services ON. -->
+    <uses-permission android:name="android.permission.NETWORK_SETTINGS"
+        tools:ignore="ProtectedPermissions" />
+
+    <!-- WiFi (Phase 2) -->
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
+    <uses-permission android:name="android.permission.NEARBY_WIFI_DEVICES"
+        android:usesPermissionFlags="neverForLocation"
+        tools:targetApi="t" />
+
+    <!-- Networking (Phase 3 + 4) -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <!-- Foreground service -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!-- Vibration on threat-tier escalation -->
+    <uses-permission android:name="android.permission.VIBRATE" />
+
+    <!-- Floating threat-circle overlay (chat-bubble style). Special-access
+         permission — user grants via system Settings page, not the runtime
+         prompt. Only consumed when the user opts in to the bubble in app
+         Settings; otherwise dormant. -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+
+    <uses-feature android:name="android.hardware.bluetooth_le" android:required="true" />
+
+    <!-- Allow Intent.setPackage("com.google.android.apps.maps") on Android 11+
+         (package visibility) so we can force "Open in Maps" pins to land in
+         Google Maps regardless of the user's default geo: handler. -->
+    <queries>
+        <package android:name="com.google.android.apps.maps" />
+    </queries>
+
+    <application
+        android:allowBackup="false"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="@xml/backup_rules"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.Overwatch"
+        android:enableOnBackInvokedCallback="true"
+        tools:targetApi="34">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:theme="@style/Theme.Overwatch">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <service
+            android:name=".service.DetectionService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="connectedDevice|location" />
+
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+    </application>
+</manifest>
