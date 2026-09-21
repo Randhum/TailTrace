@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Privileged-permission allowlist for TailTrace installed as /system/priv-app.
+
+  Android 9+ refuses to grant signature|privileged permissions to a priv-app
+  that is not explicitly allowlisted, and can refuse to boot in enforce mode.
+  This file must sit on the same system mount as the APK, under
+  /system/etc/permissions/.
+
+  Every permission listed here is also declared in the app manifest.
+  NETWORK_SETTINGS and RADIO_SCAN_WITHOUT_LOCATION are omitted on purpose:
+  both are signature-only, not privileged, so this allowlist cannot grant
+  them. Wi-Fi scans with Location services off need a platform-signed APK.
+-->
+<permissions>
+    <privapp-permissions package="ch.swhizkid.tailtrace">
+        <!-- Registration/TAU/LAU reject causes via TelephonyCallback. -->
+        <permission name="android.permission.READ_PRECISE_PHONE_STATE"/>
+        <!-- Declared for a future full-PLMN scan. No caller uses it yet. -->
+        <permission name="android.permission.MODIFY_PHONE_STATE"/>
+        <!-- Settings.Global wifi_scan_throttle_enabled = 0. -->
+        <permission name="android.permission.WRITE_SECURE_SETTINGS"/>
+    </privapp-permissions>
+</permissions>
