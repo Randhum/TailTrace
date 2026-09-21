@@ -2,7 +2,19 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- BLE (Android 12+) -->
+    <!-- BLE (Android 12+). neverForLocation is what lets a non-platform app
+         receive scan results while Location services are OFF (the only
+         alternative, RADIO_SCAN_WITHOUT_LOCATION, is signature|companion —
+         unreachable even from /system/priv-app on an official build).
+
+         Cost of the disavowal: the BT stack filters adverts matching the
+         DeviceConfig denylist "bluetooth/location_denylist_advertising_data".
+         That list is pushed BY GOOGLE PLAY SERVICES and contains only
+         Eddystone-format service data (0xFEAA, which Google FMDN reuses) and
+         Apple iBeacon (0x004C type 0x02). On degoogled LineageOS there is no
+         GMS to push it, so nothing is filtered on the target device. AirTag
+         Find My (0x004C type 0x12), Tile, SmartTag and DULT frames are never
+         on the denylist. -->
     <uses-permission android:name="android.permission.BLUETOOTH_SCAN"
         android:usesPermissionFlags="neverForLocation"
         tools:targetApi="s" />
@@ -17,6 +29,33 @@
     <!-- Location (required for WiFi scan results pre-Android 13, and DeFlock proximity in Phase 3) -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+
+    <!-- signature|privileged — granted ONLY when installed to /system/priv-app
+         with a matching privapp-permissions allowlist copied onto /system.
+         A sideloaded install simply never receives them; CellScanner checks at
+         runtime. READ_PRECISE_PHONE_STATE unlocks registration-reject causes
+         (TelephonyCallback.RegistrationFailedListener); MODIFY_PHONE_STATE is
+         pre-declared for a future requestNetworkScan full-PLMN sweep. -->
+    <uses-permission android:name="android.permission.READ_PRECISE_PHONE_STATE"
+        tools:ignore="ProtectedPermissions" />
+    <uses-permission android:name="android.permission.MODIFY_PHONE_STATE"
+        tools:ignore="ProtectedPermissions" />
+    <!-- Privileged: disable WiFi scan throttle via Settings.Global without su.
+         NOTE: RADIO_SCAN_WITHOUT_LOCATION was removed here — it is
+         signature|companion, NOT privileged, so no priv-app install can ever
+         hold it. BLE location-off works via neverForLocation above. -->
+    <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS"
+        tools:ignore="ProtectedPermissions" />
+    <!-- protectionLevel="signature" (NOT privileged — verified in AOSP
+         core/res). WifiPermissionsUtil treats it as a location-mode bypass
+         for getScanResults/startScan, but the priv-app allowlist CANNOT
+         grant signature-only permissions: only a platform-signed APK ever
+         receives this. Kept declared so a platform-signed build works;
+         harmless (simply not granted) otherwise. With it absent, Wi-Fi
+         scanning requires Location services ON. -->
+    <uses-permission android:name="android.permission.NETWORK_SETTINGS"
+        tools:ignore="ProtectedPermissions" />
 
     <!-- WiFi (Phase 2) -->
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
@@ -62,6 +101,7 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.Overwatch"
+        android:enableOnBackInvokedCallback="true"
         tools:targetApi="34">
 
         <activity
@@ -80,5 +120,15 @@
             android:enabled="true"
             android:exported="false"
             android:foregroundServiceType="connectedDevice|location" />
+
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
     </application>
 </manifest>

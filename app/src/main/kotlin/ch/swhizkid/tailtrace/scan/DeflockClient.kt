@@ -1,0 +1,205 @@
+package ch.swhizkid.tailtrace.scan
+
+import android.content.Context
+import android.util.Log
+import java.io.File
+import java.net.HttpURLConnection
+import java.net.URL
+import java.net.URLEncoder
+import kotlin.math.floor
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import org.json.JSONObject
+import ch.swhizkid.tailtrace.data.targets.OsmSurveillance
+
+/**
+ * Fetches Swiss public-space cameras from Overpass.
+ *
+ * US DeFlock's ALPR-only query is a miss here. We ask OSM Switzerland for
+ * speed cameras, section control, red-light enforcement, and public/outdoor
+ * CCTV (see [OsmSurveillance]).
+ *
+ * Prefer `overpass.osm.ch` (CH extract, [osm.ch](https://overpass.osm.ch/)),
+ * then public `overpass-api.de`. Cache by 0.05° cell for 24h.
+ */
+class DeflockClient(context: Context) {
+
+    companion object {
+        private const val TAG = "DeflockClient"
+        private const val FETCH_RADIUS_DEG = 0.05  // ~5.5 km half-width bbox
+        private const val CACHE_TTL_MS = 24L * 60L * 60L * 1000L
+        private const val USER_AGENT = "TailTrace/0.6 (+https://github.com/KaraZajac/OVERWATCH)"
+        private const val TIMEOUT_MS = 30_000
+        private const val OVERPASS_QUERY_TIMEOUT_S = 25
+        private val ENDPOINTS = listOf(
+            "https://overpass.osm.ch/api/interpreter",
+            "https://overpass-api.de/api/interpreter"
+        )
+    }
+
+    data class AlprPoint(
+        val id: Long,
+        val lat: Double,
+        val lon: Double,
+        val operator: String? = null,
+        val manufacturer: String? = null,
+        val kind: OsmSurveillance.Kind = OsmSurveillance.Kind.PUBLIC_CCTV
+    )
+
+    /** Outcome of a fetch — distinguishes "no ALPRs in area" from "couldn't reach the API." */
+    sealed class FetchResult {
+        data class Success(val points: List<AlprPoint>) : FetchResult()
+        data class Failed(val reason: String) : FetchResult()
+    }
+
+    private val cacheDir: File = File(context.cacheDir, "deflock").apply { mkdirs() }
+
+    suspend fun fetchAround(lat: Double, lon: Double): FetchResult = withContext(Dispatchers.IO) {
+        val key = cacheKeyFor(lat, lon)
+        val cached = cachedJson(key)
+        if (cached != null) {
+            Log.d(TAG, "Cache hit for $key")
+            return@withContext FetchResult.Success(parseSafely(cached))
+        }
+        val south = lat - FETCH_RADIUS_DEG
+        val north = lat + FETCH_RADIUS_DEG
+        val west = lon - FETCH_RADIUS_DEG
+        val east = lon + FETCH_RADIUS_DEG
+        val query = buildQuery(south, west, north, east)
+        val (body, lastError) = downloadFromAny(query)
+        if (body == null) {
+            return@withContext FetchResult.Failed(lastError ?: "Network error")
+        }
+        try {
+            File(cacheDir, "$key.json").writeText(body)
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to write cache for $key: ${e.message}")
+        }
+        FetchResult.Success(parseSafely(body))
+    }
+
+    private fun cacheKeyFor(lat: Double, lon: Double): String {
+        // 0.05° grid cell. Two consecutive points within the same cell get the
+        // same cache key, so micro-movements don't refetch.
+        val latStep = floor(lat / FETCH_RADIUS_DEG).toInt()
+        val lonStep = floor(lon / FETCH_RADIUS_DEG).toInt()
+        return "chsurv_${latStep}_${lonStep}"
+    }
+
+    private fun cachedJson(key: String): String? {
+        val f = File(cacheDir, "$key.json")
+        if (!f.exists()) return null
+        if (System.currentTimeMillis() - f.lastModified() > CACHE_TTL_MS) return null
+        return try { f.readText() } catch (e: Exception) { null }
+    }
+
+    private fun buildQuery(south: Double, west: Double, north: Double, east: Double): String =
+        OsmSurveillance.overpassQuery(south, west, north, east, OVERPASS_QUERY_TIMEOUT_S)
+
+    /** Try each endpoint in order until one returns 2xx. Returns body + last error message. */
+    private fun downloadFromAny(query: String): Pair<String?, String?> {
+        var lastError: String? = null
+        for (endpoint in ENDPOINTS) {
+            val (body, err) = postQuery(endpoint, query)
+            if (body != null) return body to null
+            lastError = err
+        }
+        return null to lastError
+    }
+
+    private fun postQuery(endpoint: String, query: String): Pair<String?, String?> {
+        val url = URL(endpoint)
+        val conn = (url.openConnection() as HttpURLConnection).apply {
+            connectTimeout = TIMEOUT_MS
+            readTimeout = TIMEOUT_MS
+            requestMethod = "POST"
+            doOutput = true
+            setRequestProperty("User-Agent", USER_AGENT)
+            setRequestProperty("Content-Type", "application/x-www-form-urlencoded")
+            setRequestProperty("Accept", "application/json")
+        }
+        return try {
+            val payload = "data=" + URLEncoder.encode(query, "UTF-8")
+            conn.outputStream.use { it.write(payload.toByteArray()) }
+            val code = conn.responseCode
+            if (code in 200..299) {
+                val body = conn.inputStream.bufferedReader().use { it.readText() }
+                // Overpass returns HTTP 200 with `{"remark": "runtime error: Query timed out..."}`
+                // when the query exceeded server-side limits. Body has elements:[]; treat as
+                // failure so we don't poison the 24h cache with empty results.
+                if (looksLikeOverpassTimeout(body)) {
+                    Log.w(TAG, "$endpoint returned 200 with timeout/runtime-limit remark")
+                    null to "Overpass timeout"
+                } else {
+                    body to null
+                }
+            } else {
+                Log.w(TAG, "$endpoint returned $code")
+                null to "HTTP $code"
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "$endpoint failed: ${e.message}")
+            null to (e.message ?: e.javaClass.simpleName)
+        } finally {
+            conn.disconnect()
+        }
+    }
+
+    private fun looksLikeOverpassTimeout(body: String): Boolean {
+        if (!body.contains("remark", ignoreCase = true)) return false
+        val lower = body.lowercase()
+        return lower.contains("timed out") ||
+            lower.contains("timeout") ||
+            lower.contains("runtime error") ||
+            lower.contains("runtime limit exceeded") ||
+            lower.contains("rate_limited")
+    }
+
+    private fun parseSafely(json: String): List<AlprPoint> {
+        if (json.isBlank()) return emptyList()
+        return try {
+            val root = JSONObject(json)
+            val elements = root.optJSONArray("elements") ?: return emptyList()
+            val out = ArrayList<AlprPoint>(elements.length())
+            for (i in 0 until elements.length()) {
+                val el = elements.optJSONObject(i) ?: continue
+                if (el.optString("type") != "node") continue
+                val lat = el.optDouble("lat")
+                val lon = el.optDouble("lon")
+                if (lat.isNaN() || lon.isNaN()) continue
+                val tags = el.optJSONObject("tags")
+                val tagMap = tagsToMap(tags)
+                out.add(
+                    AlprPoint(
+                        id = el.optLong("id", 0L),
+                        lat = lat,
+                        lon = lon,
+                        operator = tagMap["operator"]
+                            ?: tagMap["surveillance:operator"],
+                        manufacturer = tagMap["manufacturer"]
+                            ?: tagMap["surveillance:manufacturer"]
+                            ?: tagMap["brand"]
+                            ?: tagMap["surveillance:brand"],
+                        kind = OsmSurveillance.classify(tagMap)
+                    )
+                )
+            }
+            out
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to parse Overpass response: ${e.message}")
+            emptyList()
+        }
+    }
+
+    private fun tagsToMap(tags: JSONObject?): Map<String, String> {
+        if (tags == null) return emptyMap()
+        val out = LinkedHashMap<String, String>()
+        val keys = tags.keys()
+        while (keys.hasNext()) {
+            val k = keys.next()
+            val v = tags.optString(k).ifBlank { null } ?: continue
+            out[k] = v
+        }
+        return out
+    }
+}

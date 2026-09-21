@@ -39,7 +39,7 @@
       <a href="#tiers">Tiers</a>
       <a href="#screens">Screens</a>
       <a href="#download">Download</a>
-      <a class="nav-github" href="https://github.com/KaraZajac/OVERWATCH" aria-label="GitHub">
+      <a class="nav-github" href="https://github.com/RandHum/TailTrace" aria-label="GitHub">
         <svg height="18" viewBox="0 0 16 16" width="18" fill="currentColor" aria-hidden="true">
           <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"/>
         </svg>
@@ -79,17 +79,17 @@
     </div>
 
     <div class="cta-row">
-      <a class="btn btn-primary" href="https://github.com/KaraZajac/OVERWATCH/releases/latest">
+      <a class="btn btn-primary" href="https://github.com/RandHum/TailTrace/releases/latest">
         ↓ Download APK
       </a>
       <a class="btn" href="#detect">How it works</a>
-      <a class="btn btn-ghost" href="https://github.com/KaraZajac/OVERWATCH">
+      <a class="btn btn-ghost" href="https://github.com/RandHum/TailTrace">
         <svg height="16" viewBox="0 0 16 16" width="16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
         Source on GitHub
       </a>
     </div>
 
-    <p class="hero-warn">Passive defense only. Debug-signed APK — sideload; no Play Store. <a href="https://github.com/KaraZajac/OVERWATCH">Read the README.</a></p>
+    <p class="hero-warn">Passive defense only. Debug-signed APK — sideload; no Play Store. <a href="https://github.com/RandHum/TailTrace">Read the README.</a></p>
   </div>
 </header>
 
@@ -146,8 +146,7 @@
             <strong>Source-color dots</strong>
             <p><span class="legend-dot red"></span> Flock / DeFlock cameras red ·
             <span class="legend-dot blue"></span> Waze police blue ·
-            <span class="legend-dot" style="background:#7C4DFF"></span> aircraft violet ·
-            user position as a ⌖ crosshair.
+            <span class="legend-dot purple"></span> Citizen incidents purple.
             Tap any row for coordinates + a Maps deep-link.</p>
           </div>
         </div>
@@ -236,6 +235,20 @@
           the Overpass API (<code>overpass.deflock.org</code> → fallback
           <code>overpass-api.de</code>), with a 24 h on-disk cache and failure
           backoff. Refetches when you move &gt; 1.5 km.
+        </p>
+      </article>
+
+      <article class="bento-card">
+        <div class="bento-icon">🚨</div>
+        <h3>Citizen <span style="font-size:.72em;opacity:.75">— retired upstream</span></h3>
+        <p>
+          Real-time public-safety incidents — police-relevant only,
+          fire/medical filtered out — within range and under 30 min old.
+          Citizen ended the police-dispatch partnership behind its public feed
+          in <strong>June 2026</strong> and stubbed the endpoints, so this
+          source now reports the shutdown plainly and backs off instead of
+          polling a dead API. Police presence is still covered by Waze and
+          DeFlock.
         </p>
       </article>
 
@@ -431,7 +444,7 @@
           <div class="tl-tag">1 · download</div>
           <ul>
             <li>Grab the latest debug-signed APK from
-              <a href="https://github.com/KaraZajac/OVERWATCH/releases/latest">Releases</a>
+              <a href="https://github.com/RandHum/TailTrace/releases/latest">Releases</a>
               (currently <strong>v0.5.13</strong>).</li>
           </ul>
         </div>
@@ -453,7 +466,7 @@
 
     <p class="tl-foot">
       Build from source, file issues, or read the internals:
-      <a href="https://github.com/KaraZajac/OVERWATCH">github.com/KaraZajac/OVERWATCH</a>
+      <a href="https://github.com/RandHum/TailTrace">github.com/RandHum/TailTrace</a>
     </p>
   </div>
 </section>
@@ -474,9 +487,9 @@
     <div class="footer-col">
       <h4>Project</h4>
       <ul>
-        <li><a href="https://github.com/KaraZajac/OVERWATCH">Source</a></li>
-        <li><a href="https://github.com/KaraZajac/OVERWATCH/releases">Releases</a></li>
-        <li><a href="https://github.com/KaraZajac/OVERWATCH/releases/latest">Latest APK</a></li>
+        <li><a href="https://github.com/RandHum/TailTrace">Source</a></li>
+        <li><a href="https://github.com/RandHum/TailTrace/releases">Releases</a></li>
+        <li><a href="https://github.com/RandHum/TailTrace/releases/latest">Latest APK</a></li>
       </ul>
     </div>
     <div class="footer-col">
@@ -501,12 +514,8 @@
       transmit, probe, jam, or interfere with any device or network.
     </p>
     <p class="footer-meta">
-      v0.5.13 · <a href="https://github.com/KaraZajac/OVERWATCH">github.com/KaraZajac/OVERWATCH</a>
+      v0.5.13 · <a href="https://github.com/RandHum/TailTrace>github.com/RandHum/TailTrace"</a>
     </p>
-    <div class="onion-line">
-      <span class="onion-label">Also on Tor</span>
-      <a href="http://dppjmgngkvoy3e4dw22eh7kgtvzxhy6bgrt3zm4mekxt3fqae4rotzqd.onion">dppjmgngkvoy3e4dw22eh7kgtvzxhy6bgrt3zm4mekxt3fqae4rotzqd.onion</a>
-    </div>
   </div>
 </footer>
 
