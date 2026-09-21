@@ -84,6 +84,9 @@
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
 
     <uses-feature android:name="android.hardware.bluetooth_le" android:required="true" />
+    <!-- READ_PHONE_STATE / MODIFY_PHONE_STATE imply telephony. The phone-state
+         checks are optional (cell heuristics); WiFi-only devices must still install. -->
+    <uses-feature android:name="android.hardware.telephony" android:required="false" />
 
     <!-- Allow Intent.setPackage("com.google.android.apps.maps") on Android 11+
          (package visibility) so we can force "Open in Maps" pins to land in

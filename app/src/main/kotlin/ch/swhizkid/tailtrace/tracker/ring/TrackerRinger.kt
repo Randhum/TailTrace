@@ -9,6 +9,7 @@ import android.bluetooth.BluetoothGattCharacteristic
 import android.bluetooth.BluetoothGattDescriptor
 import android.bluetooth.BluetoothManager
 import android.bluetooth.BluetoothProfile
+import android.bluetooth.BluetoothStatusCodes
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
@@ -177,7 +178,7 @@ object TrackerRinger {
     private fun writeStart(g: BluetoothGatt, ch: BluetoothGattCharacteristic, proto: Proto): Boolean =
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             g.writeCharacteristic(ch, proto.start, BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT) ==
-                BluetoothGatt.GATT_SUCCESS
+                BluetoothStatusCodes.SUCCESS
         } else {
             ch.writeType = BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT
             ch.value = proto.start
@@ -188,7 +189,7 @@ object TrackerRinger {
     @SuppressLint("MissingPermission")
     private fun writeDescriptor(g: BluetoothGatt, desc: BluetoothGattDescriptor, value: ByteArray): Boolean =
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            g.writeDescriptor(desc, value) == BluetoothGatt.GATT_SUCCESS
+            g.writeDescriptor(desc, value) == BluetoothStatusCodes.SUCCESS
         } else {
             desc.value = value
             g.writeDescriptor(desc)
